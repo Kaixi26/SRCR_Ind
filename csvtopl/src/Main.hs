@@ -17,6 +17,11 @@ type Coords = (Float, Float)
 
 data Paragem = Paragem Gid Coords String String Bool String [Int] Int String String deriving Show
 
+cleanQuotes :: String -> String
+cleanQuotes [] = []
+cleanQuotes ('\'':xs) = '\\' : '\'' : cleanQuotes xs
+cleanQuotes (x:xs) = x : cleanQuotes xs
+
 fromList :: [String] -> Maybe Paragem
 fromList [gid, lat, long, econ, abr, pub, op, carr, crua, nrua, freg] = 
   let pgid = truncate ((read gid)::Double)
@@ -24,7 +29,8 @@ fromList [gid, lat, long, econ, abr, pub, op, carr, crua, nrua, freg] =
       plong = (read long)::Float
       pcarr = map truncate ((read ("[" ++ carr ++ "]"))::[Double])
       pcrua = truncate ((read crua)::Double)
-  in Just $ Paragem pgid (plat, plong) econ abr ((map toLower pub)=="yes") op pcarr pcrua nrua freg
+  in Just $ Paragem pgid (plat, plong) (cleanQuotes econ) (cleanQuotes abr) ((map toLower pub)=="yes") 
+        (cleanQuotes op) pcarr pcrua (cleanQuotes nrua) (cleanQuotes freg)
 fromList _ = Nothing
 
 toProlog :: Paragem -> String
@@ -49,8 +55,6 @@ main = do
   bs <- L.readFile "docs/paragens.xlsx"
   let firstSheet = (!! 0) . map snd . view xlSheets . toXlsx $ bs
   let cells = view wsCells firstSheet
-  --let x = atCell (1,1) (Just firstSheet)
-  --putStrLn $ "Cell B3 contains " ++ 
   let lines = sequence . tail . map (sequence . map  snd) . groupBy ((/=) `on` (snd . fst)) . map (second (view cellValue)) $ Map.toList cells
   let linesStr = (map (map (Text.unpack . toCellText))) <$> lines
   let paragens = (catMaybes . map fromList) <$> linesStr
